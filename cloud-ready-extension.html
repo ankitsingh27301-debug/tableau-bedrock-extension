@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tableau Cloud Extension Test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f7fa;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: #1f4e79;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .status {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .chat-area {
+            padding: 20px;
+            min-height: 300px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 80%;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            border-radius: 18px 18px 4px 18px;
+        }
+        .bot-message {
+            background: #f1f3f4;
+            color: #333;
+            border-radius: 18px 18px 18px 4px;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+            padding: 20px;
+            border-top: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            outline: none;
+        }
+        .input-area button {
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .input-area button:hover {
+            background: #0056b3;
+        }
+        .dashboard-info {
+            background: #e8f5e8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Bedrock Data Assistant</h1>
+            <p>AI-powered insights for your Tableau dashboard</p>
+        </div>
+        
+        <div id="status" class="status info">
+            🔄 Connecting to Tableau Cloud...
+        </div>
+        
+        <div id="dashboard-info"></div>
+        
+        <div class="chat-area">
+            <div id="messages">
+                <div class="message bot-message">
+                    👋 Hello! I'm your AI data assistant. I can help you understand your dashboard data and provide insights.
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Ask about your data..." disabled>
+            <button id="sendButton" disabled onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let dashboard = null;
+        let worksheets = [];
+        let isConnected = false;
+        
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        function showDashboardInfo(info) {
+            document.getElementById('dashboard-info').innerHTML = info;
+        }
+        
+        function addMessage(content, isUser = false) {
+            const messagesEl = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.innerHTML = content;
+            messagesEl.appendChild(messageDiv);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+        
+        function enableChat() {
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            document.getElementById('messageInput').focus();
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            addMessage(message, true);
+            input.value = '';
+            
+            // Generate response
+            setTimeout(() => {
+                const response = generateResponse(message);
+                addMessage(response);
+            }, 500);
+        }
+        
+        function generateResponse(message) {
+            if (!isConnected) {
+                return "I'm not connected to your dashboard data yet. Once connected, I'll be able to provide specific insights about your data.";
+            }
+            
+            const worksheetList = worksheets.map(ws => `• ${ws.name}`).join('<br>');
+            
+            return `Based on your dashboard "${dashboard.name}":<br><br>
+                    <strong>Available data:</strong><br>
+                    ${worksheetList}<br><br>
+                    Your question: "${message}"<br><br>
+                    <em>🚀 Next step: Connect to AWS Bedrock for intelligent AI responses about your specific data!</em>`;
+        }
+        
+        async function initializeExtension() {
+            try {
+                updateStatus('🔄 Initializing Tableau Extensions API...', 'info');
+                
+                // Initialize Extensions API
+                await tableau.extensions.initializeAsync();
+                
+                dashboard = tableau.extensions.dashboardContent.dashboard;
+                worksheets = dashboard.worksheets;
+                isConnected = true;
+                
+                updateStatus('✅ Successfully connected to Tableau Cloud!', 'success');
+                
+                // Show dashboard info
+                showDashboardInfo(`
+                    <div class="dashboard-info">
+                        <strong>🎉 Connected to Dashboard!</strong><br>
+                        <strong>Name:</strong> ${dashboard.name}<br>
+                        <strong>Worksheets:</strong> ${worksheets.length}<br>
+                        <strong>Ready for AI integration!</strong>
+                    </div>
+                `);
+                
+                enableChat();
+                
+                // Add welcome message with dashboard context
+                addMessage(`Great! I'm now connected to your dashboard "<strong>${dashboard.name}</strong>" with ${worksheets.length} worksheets. I can help you understand your data. What would you like to know?`);
+                
+            } catch (error) {
+                updateStatus('❌ Failed to connect: ' + error.message, 'error');
+                console.error('Extension initialization failed:', error);
+            }
+        }
+        
+        // Add enter key support
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        });
+        
+        // Initialize when Extensions API is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Give Extensions API time to load
+            setTimeout(initializeExtension, 1000);
+        });
+    </script>
+    
+    <!-- Load Tableau Extensions API from standard URL (should work in Cloud) -->
+    <script src="https://public.tableau.com/javascripts/api/tableau.extensions.1.latest.min.js"></script>
+</body>
+</html>
